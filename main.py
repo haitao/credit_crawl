@@ -35,11 +35,10 @@ def parsehtml(driver, queue):
     nameend = queue.get()
     line = nameend.strip()
     name1 = line.decode('UTF-8-SIG')
-    name2 = u"江苏"
+    name2 = u""
     name = name2 + name1
 
     print
-    # name = u'北京京宁征信股份有限公司'
     try:
         clrinput = driver.find_element_by_id('searchkey')
         clrinput.clear()
