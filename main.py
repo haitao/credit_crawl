@@ -8,14 +8,17 @@ from selenium import webdriver
 from Queue import Queue
 import threading
 
+from captchar import capchar
+from selenium.common.exceptions import TimeoutException
 import select_solr_mc
 from worker import parsemaininfo
 NUM_WORKERS = 1
 AVE_PAGES   = 20
-
+i = 0
 class MyThread(threading.Thread):
-    def __init__(self, queue):
+    def __init__(self, queue, i):
         self.queue = queue
+        self.i = i
         # self._work_type
         threading.Thread.__init__(self)
 
@@ -23,22 +26,23 @@ class MyThread(threading.Thread):
         while True:
             try:
                 self.driver = webdriver.Firefox()
-                if self.queue.qsize() > 0:
+                if self.queue.qsize() > 0 and self.i < self.queue.qsize():
                     url = 'http://www.shuidixy.com/'
                     self.driver.get(url)
-                    parsehtml(self.driver, self.queue)
+                    parsehtml(self.driver, self.queue, self.i)
+                    self.i += 1
                 else:
                     break
             except:
                 time.sleep(randint(20*60, 30*60))
-def parsehtml(driver, queue):
+
+def parsehtml(driver, queue, i):
     nameend = queue.get()
     line = nameend.strip()
     name1 = line.decode('UTF-8-SIG')
-    name2 = u""
+    name2 = u"贵州"
     name = name2 + name1
-
-    print
+    # name = u'北京京宁征信股份有限公司'
     try:
         clrinput = driver.find_element_by_id('searchkey')
         clrinput.clear()
@@ -88,6 +92,9 @@ def parsehtml(driver, queue):
 
         print 'length of %d'% len(links)
 
+        capchar(driver)
+        print '------>'
+        time.sleep(5)
         driver.quit()
         #去重
         ids = set(links)
@@ -95,15 +102,18 @@ def parsehtml(driver, queue):
 
         counterror = 0
         browser = webdriver.Firefox()
+        browser.set_page_load_timeout(20)
         for link in ids:
             print '[!]The company is %s' % name
-            with open('errorlog.txt', 'w') as logfile:
-                logfile.write(str(counterror))
+
             try:
                 browser.get(link)
+            except:
+                browser.refresh()
+                time.sleep(randint(10, 20))
+            try:
                 test = parsemaininfo(browser, name)
                 if test:
-
                     counterror = 0
                     with open('errorlog.txt', 'w') as logfile:
                         logfile.write(str(counterror))
@@ -115,23 +125,35 @@ def parsehtml(driver, queue):
                     counterror = 0
                     with open('errorlog.txt', 'w') as logfile:
                         logfile.write(str(counterror))
-
             except:
-                time.sleep(10 * 60)
+                time.sleep(randint(10*20, 20*20))
+
         browser.quit()
+
+        i = i + 1
+        with open('log.txt', 'w') as logfile:
+            logfile.write(str(i))
     except:
+        driver.quit()
         print traceback.print_exc()
 
 def crawl():
     queue = Queue()
     lines = open('3500.txt', 'r').readlines()
-    for line in lines[101:]:
+    try:
+        with open('log.txt', 'r') as logfile:
+            i = logfile.readline()
+            i = int(i)
+    except:
+        i = 0
+        pass
+    for line in lines[i:]:
         queue.put(line)
 
     print queue.qsize()
     threads = []
     for x in range(NUM_WORKERS):
-        thread = MyThread(queue)
+        thread = MyThread(queue, i)
         thread.start()
         threads.append(thread)
 
